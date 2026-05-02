@@ -142,3 +142,37 @@ FROM notifications
 WHERE type = 'Placement'
 AND created_at >= NOW() - INTERVAL '7 days';
 ```
+
+# Stage 4
+
+## Caching Strategy for Notifications
+
+### Problem
+Notifications fetched on every page load → DB overwhelmed.
+
+### Solution: Redis Cache
+
+**Strategy:**
+- On first fetch → get from DB, store in Redis with TTL of 60 seconds
+- On next fetch → return from Redis directly, skip DB
+- On new notification / mark as read → invalidate that student's cache
+
+### Tradeoffs
+
+| Strategy | Pro | Con |
+|----------|-----|-----|
+| Redis TTL cache | Fast reads | Slight stale data |
+| No cache | Always fresh | DB dies under load |
+| Infinite cache | Fastest | Stale forever |
+
+### Cache Key Design
+notifications:student:{student_id}:unread
+### Pseudocode
+
+GET /api/notifications:
+key = "notifications:student:{id}:unread"
+if Redis.get(key) exists → return it
+else → fetch from DB → Redis.set(key, data, TTL=60) → return
+PATCH /api/notifications/:id/read:
+update DB
+Redis.delete(key) ← invalidate cache
