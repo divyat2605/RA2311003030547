@@ -200,4 +200,4 @@ push_to_app(id, message)   // parallel
 log failed students for retry
 
 ### Should DB save and email happen together?
-No — they should be independent. If email fails, DB save should still succeed so the notification is not lost. Use a message queue (e.g. BullMQ/Redis) for email retries separately.
+No, they should be independent. If email fails, DB save should still succeed so the notification is not lost. Use a message queue (e.g. BullMQ/Redis) for email retries separately.
