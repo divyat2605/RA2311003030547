@@ -98,3 +98,47 @@ UPDATE notifications SET is_read = true WHERE student_id = $1;
 - Solution: Index on (student_id, is_read, created_at)
 - Archive old notifications to separate table
 - Partition table by created_at (monthly)
+
+# Stage 3
+
+## Slow Query Analysis
+
+### Original Query
+```sql
+SELECT * FROM notifications
+WHERE studentID = 1042 AND isRead = false
+ORDER BY createdAt DESC;
+```
+
+### Why is it slow?
+- No indexes on studentID, isRead, or createdAt
+- SELECT * fetches all columns unnecessarily
+- At 50,000 students x 5,000,000 notifications = full table scan every time
+
+### Fix — Add Composite Index
+```sql
+CREATE INDEX idx_notifications_student_unread 
+ON notifications(student_id, is_read, created_at DESC);
+```
+
+### Should we index every column?
+**No.** Indexing every column is bad because:
+- Every INSERT/UPDATE becomes slower (indexes must update too)
+- More storage used
+- Only index columns used in WHERE, ORDER BY, JOIN
+
+### Optimized Query
+```sql
+SELECT id, type, message, created_at 
+FROM notifications
+WHERE student_id = 1042 AND is_read = false
+ORDER BY created_at DESC;
+```
+
+### Find students with Placement notification in last 7 days
+```sql
+SELECT DISTINCT student_id 
+FROM notifications
+WHERE type = 'Placement'
+AND created_at >= NOW() - INTERVAL '7 days';
+```
