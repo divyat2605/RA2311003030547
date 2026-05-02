@@ -176,3 +176,28 @@ else → fetch from DB → Redis.set(key, data, TTL=60) → return
 PATCH /api/notifications/:id/read:
 update DB
 Redis.delete(key) ← invalidate cache
+
+# Stage 5
+
+## Bulk Notification Redesign
+
+### Shortcomings of original pseudocode
+- Sequential loop → 50,000 students notified one by one = very slow
+- If send_email fails midway, no retry mechanism
+- DB save and email in sequence → if email fails, DB already saved (inconsistency)
+
+### Redesigned Pseudocode
+async function notify_all(student_ids, message):
+results = await Promise.allSettled(
+student_ids.map(async (id) =>
+await Promise.all([
+send_email(id, message),   // parallel
+save_to_db(id, message),   // parallel
+push_to_app(id, message)   // parallel
+])
+)
+)
+log failed students for retry
+
+### Should DB save and email happen together?
+No — they should be independent. If email fails, DB save should still succeed so the notification is not lost. Use a message queue (e.g. BullMQ/Redis) for email retries separately.
